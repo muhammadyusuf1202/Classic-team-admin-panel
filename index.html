@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Classic Team | Admin Update System</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        :root {
+            --django-header: #417690;
+            --django-sidebar: #1a1e21;
+            --django-green: #28a745;
+            --django-blue: #007bff;
+            --django-text: #333;
+            --bg-gray: #f8f9fa;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Roboto', sans-serif; }
+        body { background: var(--bg-gray); display: flex; min-height: 100vh; }
+
+        .sidebar { width: 260px; background: var(--django-sidebar); color: white; position: fixed; height: 100vh; }
+        .sidebar-brand { padding: 20px; font-size: 20px; font-weight: bold; color: var(--django-green); border-bottom: 1px solid #333; }
+        
+        .main-content { margin-left: 260px; flex: 1; }
+        header { background: var(--django-header); color: white; padding: 15px 30px; display: flex; justify-content: space-between; }
+
+        .container { padding: 30px; max-width: 1100px; margin: 0 auto; }
+        .card { background: white; padding: 25px; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 30px; }
+        
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 14px; }
+        input, select { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; }
+
+        .btn-group { display: flex; gap: 10px; }
+        .btn-django { background: var(--django-header); color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        .btn-save { background: var(--django-green); }
+        .btn-cancel { background: #666; }
+
+        table { width: 100%; border-collapse: collapse; background: white; margin-top: 20px; }
+        th { background: #f1f1f1; text-align: left; padding: 12px; border-bottom: 1px solid #ddd; font-size: 13px; }
+        td { padding: 12px; border-bottom: 1px solid #eee; font-size: 14px; }
+        
+        .edit-link { color: var(--django-blue); cursor: pointer; font-weight: bold; margin-right: 15px; }
+        .del-link { color: #ba2121; cursor: pointer; font-weight: bold; }
+        #progress { display: none; color: var(--django-green); font-weight: bold; margin-bottom: 10px; }
+    </style>
+</head>
+<body>
+
+    <div class="sidebar">
+        <div class="sidebar-brand">CLASSIC ADMIN</div>
+        <div style="padding: 20px; color: #888; font-size: 12px;">MODELS</div>
+        <div style="padding: 10px 20px; background: #2c3238; border-left: 4px solid var(--django-green);">
+            <i class="fa fa-video"></i> Videolar
+        </div>
+    </div>
+
+    <div class="main-content">
+        <header>
+            <div>Boshqaruv paneli</div>
+            <div>Admin | <a href="#" style="color: white; text-decoration: none;">Chiqish</a></div>
+        </header>
+
+        <div class="container">
+            <div class="card">
+                <h3 id="formTitle"><i class="fa fa-plus-circle"></i> Yangi video qo'shish</h3><br>
+                
+                <input type="hidden" id="editIndex" value="-1">
+                
+                <div class="form-group">
+                    <label>Sarlavha</label>
+                    <input type="text" id="vTitle" placeholder="Video nomi...">
+                </div>
+
+                <div class="form-group">
+                    <label>Format</label>
+                    <select id="vType">
+                        <option value="video">Standart Video (16:9)</option>
+                        <option value="shorts">Shorts (9:16)</option>
+                    </select>
+                </div>
+
+                <div class="form-group" id="fileGroup">
+                    <label>Video fayl (O'zgartirmoqchi bo'lsangiz tanlang)</label>
+                    <input type="file" id="vFile" accept="video/*">
+                </div>
+
+                <div id="progress"><i class="fa fa-spinner fa-spin"></i> Amal bajarilmoqda...</div>
+                
+                <div class="btn-group">
+                    <button id="saveBtn" class="btn-django btn-save" onclick="handleSave()">SAQLASH</button>
+                    <button id="cancelBtn" class="btn-django btn-cancel" style="display:none;" onclick="resetForm()">BEKOR QILISH</button>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3><i class="fa fa-list"></i> Videolar ro'yxati</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Sarlavha</th>
+                            <th>Turi</th>
+                            <th>Sana</th>
+                            <th>Amallar</th>
+                        </tr>
+                    </thead>
+                    <tbody id="listItems"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+<script>
+    window.onload = renderVideos;
+
+    function resetForm() {
+        document.getElementById('vTitle').value = '';
+        document.getElementById('vFile').value = '';
+        document.getElementById('editIndex').value = '-1';
+        document.getElementById('formTitle').innerHTML = '<i class="fa fa-plus-circle"></i> Yangi video qo\'shish';
+        document.getElementById('saveBtn').innerText = 'SAQLASH';
+        document.getElementById('cancelBtn').style.display = 'none';
+    }
+
+    // TAHRIRLASH (UPDATE) REJIMIGA O'TISH
+    function editVideo(index) {
+        const videos = JSON.parse(localStorage.getItem('db_videos') || '[]');
+        const v = videos[index];
+
+        document.getElementById('vTitle').value = v.title;
+        document.getElementById('vType').value = v.type;
+        document.getElementById('editIndex').value = index;
+
+        document.getElementById('formTitle').innerHTML = '<i class="fa fa-edit"></i> Videoni tahrirlash';
+        document.getElementById('saveBtn').innerText = 'YANGILASHNI SAQLASH';
+        document.getElementById('cancelBtn').style.display = 'inline-block';
+        
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    async function handleSave() {
+        const title = document.getElementById('vTitle').value;
+        const type = document.getElementById('vType').value;
+        const fileInput = document.getElementById('vFile');
+        const editIndex = parseInt(document.getElementById('editIndex').value);
+        const progress = document.getElementById('progress');
+
+        if (!title) return alert("Sarlavhani yozing!");
+
+        progress.style.display = 'block';
+        let videos = JSON.parse(localStorage.getItem('db_videos') || '[]');
+
+        if (editIndex === -1) {
+            // YANGI QO'SHISH
+            if (!fileInput.files[0]) {
+                progress.style.display = 'none';
+                return alert("Video faylni tanlang!");
+            }
+            await processFileAndSave(fileInput.files[0], title, type, -1);
+        } else {
+            // TAHRIRLASH
+            if (fileInput.files[0]) {
+                // Agar yangi fayl tanlangan bo'lsa
+                await processFileAndSave(fileInput.files[0], title, type, editIndex);
+            } else {
+                // Faqat matnlarni yangilash
+                videos[editIndex].title = title;
+                videos[editIndex].type = type;
+                localStorage.setItem('db_videos', JSON.stringify(videos));
+                finishAction();
+            }
+        }
+    }
+
+    async function processFileAndSave(file, title, type, index) {
+        if (file.size > 15 * 1024 * 1024) {
+            alert("Fayl juda katta!");
+            document.getElementById('progress').style.display = 'none';
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = function(e) {
+            let videos = JSON.parse(localStorage.getItem('db_videos') || '[]');
+            const videoData = {
+                title: title,
+                type: type,
+                src: e.target.result,
+                date: new Date().toLocaleDateString()
+            };
+
+            if (index === -1) {
+                videos.push(videoData);
+            } else {
+                videos[index] = videoData;
+            }
+
+            try {
+                localStorage.setItem('db_videos', JSON.stringify(videos));
+                finishAction();
+            } catch (err) {
+                alert("Xotira to'ldi!");
+            }
+        };
+    }
+
+    function finishAction() {
+        alert("Amal bajarildi!");
+        resetForm();
+        renderVideos();
+        document.getElementById('progress').style.display = 'none';
+    }
+
+    function renderVideos() {
+        const videos = JSON.parse(localStorage.getItem('db_videos') || '[]');
+        const list = document.getElementById('listItems');
+        list.innerHTML = '';
+
+        videos.forEach((v, i) => {
+            list.innerHTML += `
+                <tr>
+                    <td><strong>${v.title}</strong></td>
+                    <td><span style="background:#eee; padding:2px 6px; border-radius:4px; font-size:11px;">${v.type.toUpperCase()}</span></td>
+                    <td>${v.date}</td>
+                    <td>
+                        <a class="edit-link" onclick="editVideo(${i})">O'zgartirish</a>
+                        <a class="del-link" onclick="deleteVideo(${i})">O'chirish</a>
+                    </td>
+                </tr>
+            `;
+        });
+    }
+
+    function deleteVideo(i) {
+        if(confirm("Haqiqatdan ham o'chirmoqchimisiz?")) {
+            let videos = JSON.parse(localStorage.getItem('db_videos') || '[]');
+            videos.splice(i, 1);
+            localStorage.setItem('db_videos', JSON.stringify(videos));
+            renderVideos();
+        }
+    }
+</script>
+</body>
+</html>
